@@ -6,6 +6,7 @@ package main
 
 import (
 	H "chat/chat"
+	DB "chat/db"
 	"flag"
 	"log"
 	"net/http"
@@ -27,14 +28,21 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+
+	repo := DB.NewSQLiteRepository()
+	err := repo.CreateTable()
+	if err != nil {
+		log.Fatal("cant find db: ", err)
+	}
+
 	flag.Parse()
 	hub := H.NewHub()
-	go hub.Run()
+	go hub.Run(repo)
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		H.ServeWebSocket(hub, w, r)
 	})
-	err := http.ListenAndServe(*addr, nil)
+	err = http.ListenAndServe(*addr, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}

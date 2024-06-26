@@ -4,6 +4,11 @@
 
 package chat
 
+import (
+	DB "chat/db"
+	"log"
+)
+
 // Hub maintains the set of active clients and broadcasts messages to the
 // clients.
 type Hub struct {
@@ -29,25 +34,49 @@ func NewHub() *Hub {
 	}
 }
 
-func (h *Hub) Run() {
+func (h *Hub) Run(repo *DB.SQLiteRepository) {
 	for {
 		select {
 		case client := <-h.register:
+			// register the client with the hub
 			h.clients[client] = true
+			go sendToClientAllPrevMessages(client, repo)
 		case client := <-h.unregister:
+			// unregister the client with the hub and close his channel
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
 			}
 		case message := <-h.broadcast:
+			go saveMsgToDb(message, repo)
 			for client := range h.clients {
 				select {
 				case client.send <- message:
-				default:
+				default: // If the send channel is not blocked, the message is successfully sent to the client.
+					// However, if the send channel is blocked (indicated by the default case), it means the client is not receiving messages anymore.
 					close(client.send)
 					delete(h.clients, client)
 				}
 			}
 		}
+	}
+}
+
+func saveMsgToDb(message []byte, repo *DB.SQLiteRepository) {
+	stringMsg := string(message[:])
+	log.Printf("saving msg to db %s\n", stringMsg)
+	err := repo.Append(stringMsg)
+	if err != nil {
+		log.Fatal("saveMsgToDb: ", err)
+	}
+}
+
+func sendToClientAllPrevMessages(client *Client, repo *DB.SQLiteRepository) {
+	messages, err := repo.Fetch()
+	if err != nil {
+		log.Fatal("sendToClientAllPrevMessages: ", err)
+	}
+	for _, message := range *messages {
+		client.send <- []byte(message)
 	}
 }
