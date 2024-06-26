@@ -1,18 +1,28 @@
 package db
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
+)
 
 type SQLiteRepository struct {
 	db *sql.DB
 }
 
-func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
+const fileName = "db/chat.db"
+
+func NewSQLiteRepository() *SQLiteRepository {
+	db, err := sql.Open("sqlite3", fileName)
+	if err != nil {
+		fmt.Println("cant open db", err)
+		panic(err)
+	}
 	return &SQLiteRepository{
 		db: db,
 	}
 }
 
-func (r *SQLiteRepository) Migrate() error {
+func (r *SQLiteRepository) CreateTable() error {
 	query := `
     CREATE TABLE IF NOT EXISTS messages(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
