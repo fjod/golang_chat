@@ -1,5 +1,6 @@
 # golang_chat
-websocket chat with golang on backend and react js on frontend
+websocket chat with golang on backend
+copypasted from gorilla/chat example
 
 on win11 I had to set env variable as last comment here https://github.com/mattn/go-sqlite3/issues/855
 `go env -w CGO_ENABLED=1`
