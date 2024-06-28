@@ -6,7 +6,7 @@ package chat
 
 import (
 	DB "chat/db"
-	"log"
+	"fmt"
 )
 
 // Hub maintains the set of active clients and broadcasts messages to the
@@ -34,13 +34,13 @@ func NewHub() *Hub {
 	}
 }
 
-func (h *Hub) Run(repo *DB.SQLiteRepository) {
+func (h *Hub) Run(repo *DB.Service) {
 	for {
 		select {
 		case client := <-h.register:
 			// register the client with the hub
 			h.clients[client] = true
-			go sendToClientAllPrevMessages(client, repo)
+			go sendToClientAllPrevMessages(client, repo.Storage.Fetch)
 		case client := <-h.unregister:
 			// unregister the client with the hub and close his channel
 			if _, ok := h.clients[client]; ok {
@@ -48,7 +48,7 @@ func (h *Hub) Run(repo *DB.SQLiteRepository) {
 				close(client.send)
 			}
 		case message := <-h.broadcast:
-			go saveMsgToDb(message, repo)
+			go saveMsgToDb(message, repo.Storage.Append)
 			for client := range h.clients {
 				select {
 				case client.send <- message:
@@ -62,19 +62,19 @@ func (h *Hub) Run(repo *DB.SQLiteRepository) {
 	}
 }
 
-func saveMsgToDb(message []byte, repo *DB.SQLiteRepository) {
+func saveMsgToDb(message []byte, append func(msg string) error) {
 	stringMsg := string(message[:])
-	log.Printf("saving msg to db %s\n", stringMsg)
-	err := repo.Append(stringMsg)
+	fmt.Printf("saving msg to db %s\n\n", stringMsg)
+	err := append(stringMsg)
 	if err != nil {
-		log.Fatal("saveMsgToDb: ", err)
+		fmt.Printf("saving msg to db error %s\n\n", stringMsg)
 	}
 }
 
-func sendToClientAllPrevMessages(client *Client, repo *DB.SQLiteRepository) {
-	messages, err := repo.Fetch()
+func sendToClientAllPrevMessages(client *Client, fetch func() (*[]string, error)) {
+	messages, err := fetch()
 	if err != nil {
-		log.Fatal("sendToClientAllPrevMessages: ", err)
+		fmt.Printf("sendToClientAllPrevMessages %s\n\n", err)
 	}
 	for _, message := range *messages {
 		client.send <- []byte(message)

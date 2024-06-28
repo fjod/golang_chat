@@ -8,6 +8,7 @@ import (
 	H "chat/chat"
 	DB "chat/db"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -30,14 +31,15 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	repo := DB.NewSQLiteRepository()
-	err := repo.CreateTable()
+	dbService := DB.NewService(repo)
+	err := (*dbService).Storage.CreateTable()
 	if err != nil {
-		log.Fatal("cant find db: ", err)
+		fmt.Println("cant find db: ", err)
 	}
 
 	flag.Parse()
 	hub := H.NewHub()
-	go hub.Run(repo)
+	go hub.Run(dbService)
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		H.ServeWebSocket(hub, w, r)

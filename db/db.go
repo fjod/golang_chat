@@ -10,6 +10,17 @@ type SQLiteRepository struct {
 	db *sql.DB
 }
 
+//go:generate mockery --name RepoOperations
+type RepoOperations interface {
+	CreateTable() error
+	Append(msg string) error
+	Fetch() (*[]string, error)
+}
+
+type Service struct {
+	Storage RepoOperations
+}
+
 const fileName = "db/chat.db"
 
 func NewSQLiteRepository() *SQLiteRepository {
@@ -20,6 +31,12 @@ func NewSQLiteRepository() *SQLiteRepository {
 	}
 	return &SQLiteRepository{
 		db: db,
+	}
+}
+
+func NewService(storage RepoOperations) *Service {
+	return &Service{
+		Storage: storage,
 	}
 }
 
